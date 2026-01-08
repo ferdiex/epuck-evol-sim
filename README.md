@@ -173,7 +173,7 @@ In the window:
    - Bitmask: e.g. `best_chromosomes/gen_0099.json`.
    - Braitenberg: e.g. `braitenberg/braitenberg.json`.
 2. Set the number of steps (e.g. `5000`).
-3. Check or uncheck **“Usar GUI (desactiva para DIRECT)”**:
+3. Check or uncheck **Use GUI (uncheck for DIRECT)**:
    - Checked: PyBullet opens a 3D GUI window.
    - Unchecked: runs in `DIRECT` mode (no GUI).
 4. Click **“Ejecutar Simulación”**.

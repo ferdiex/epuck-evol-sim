@@ -32,12 +32,13 @@ ACTION_TABLE = {
 
 def get_bitmask_state(sensor_values):
     """Extract 3-bit mask (left, center, right) state from sensor readings."""
-    left = any(sensor_values[i] > OBSTACLE_THRESHOLD for i in [0,1])
-    center = any(sensor_values[i] > OBSTACLE_THRESHOLD for i in [2,3,4,5])
-    right = any(sensor_values[i] > OBSTACLE_THRESHOLD for i in [6,7])
+    left = any(sensor_values[i] > OBSTACLE_THRESHOLD for i in [0, 1])
+    center = any(sensor_values[i] > OBSTACLE_THRESHOLD for i in [2, 3, 4, 5])
+    right = any(sensor_values[i] > OBSTACLE_THRESHOLD for i in [6, 7])
     return (left << 2) | (center << 1) | (right << 0)
 
 def robot_controller(sensor_values, controller_params):
+    """Dispatch to Braitenberg or bitmask controller based on encoding field."""
     if controller_params.get("encoding") == "braitenberg":
         left_w = np.array(controller_params["left_weights"])
         right_w = np.array(controller_params["right_weights"])
@@ -56,30 +57,8 @@ def robot_controller(sensor_values, controller_params):
     else:
         raise ValueError("Unknown controller encoding")
 
-'''
 def add_world():
-    """Sets up box arena and obstacles."""
-    half = WORLD_SIZE / 2.0
-    height = 0.06
-    thick = 0.03
-    wall_col = p.createCollisionShape(p.GEOM_BOX, halfExtents=[half, thick/2, height/2])
-    wall_vis = p.createVisualShape(p.GEOM_BOX, halfExtents=[half, thick/2, height/2], rgbaColor=[.8,.8,.8,1])
-    p.createMultiBody(0, wall_col, wall_vis, [0, half, height/2])
-    p.createMultiBody(0, wall_col, wall_vis, [0, -half, height/2])
-    wall_col_x = p.createCollisionShape(p.GEOM_BOX, halfExtents=[thick/2, half, height/2])
-    wall_vis_x = p.createVisualShape(p.GEOM_BOX, halfExtents=[thick/2, half, height/2], rgbaColor=[.8,.8,.8,1])
-    p.createMultiBody(0, wall_col_x, wall_vis_x, [half, 0, height/2])
-    p.createMultiBody(0, wall_col_x, wall_vis_x, [-half, 0, height/2])
-    
-    # Obstacles
-    ob_col = p.createCollisionShape(p.GEOM_BOX, halfExtents=[.03, .03, .035])
-    ob_vis = p.createVisualShape(p.GEOM_BOX, halfExtents=[.03, .03, .035], rgbaColor=[1.0,0.15,0.15,1])
-    for x, y in [(-0.30, 0.22), (0.38, 0.08), (0.0, -0.38)]:
-        p.createMultiBody(0, ob_col, ob_vis, [x, y, 0.035])
-'''
-
-def add_world():
-    """Sets up box arena, obstacles, and a recharge area."""
+    """Set up box arena, obstacles, and a recharge area."""
     half = WORLD_SIZE / 2.0
     height = 0.06
     thick = 0.03
@@ -102,7 +81,7 @@ def add_world():
     for x, y in [(-0.30, 0.22), (0.38, 0.08), (0.0, -0.38)]:
         p.createMultiBody(0, ob_col, ob_vis, [x, y, 0.035])
 
-    # Recharge area (blue cylinder, no collision for now, but collision can be left in for future use)
+    # Recharge area (blue cylinder, ready for future use)
     recharge_center = (0.5, -0.5)
     recharge_radius = 0.07
     recharge_thickness = 0.005
@@ -125,6 +104,7 @@ def add_world():
     )
 
 def read_range_sensors(robot_id, sensor_angles_world, sensor_range):
+    """Cast rays around the robot and return normalized proximity readings."""
     base_pos, base_ori = p.getBasePositionAndOrientation(robot_id)
     base_mat = p.getMatrixFromQuaternion(base_ori)
     fwd_vec = np.array([base_mat[0], base_mat[3], 0])
@@ -139,22 +119,22 @@ def read_range_sensors(robot_id, sensor_angles_world, sensor_range):
         if ray[0] == -1 or ray[0] == robot_id:
             readings.append(0.0)
         else:
-            readings.append(1.0-hit_fraction)
+            readings.append(1.0 - hit_fraction)
         # Debug print (optional)
         # print(f"Ray{si}: {'hit self' if ray[0]==robot_id else ('open space' if ray[0]==-1 else ray[0])}")
     return readings
 
 def random_start():
+    """Spawn the robot randomly inside the arena, away from walls."""
     margin = 0.15
-    x = random.uniform(-WORLD_SIZE/2+margin, WORLD_SIZE/2-margin)
-    y = random.uniform(-WORLD_SIZE/2+margin, WORLD_SIZE/2-margin)
+    x = random.uniform(-WORLD_SIZE/2 + margin, WORLD_SIZE/2 - margin)
+    y = random.uniform(-WORLD_SIZE/2 + margin, WORLD_SIZE/2 - margin)
     yaw = random.uniform(-np.pi, np.pi)
-    return [x,y,0.035], p.getQuaternionFromEuler([0, 0, yaw])
+    return [x, y, 0.035], p.getQuaternionFromEuler([0, 0, yaw])
 
 def set_friction(robot_id):
-    # HIGH friction on wheels, LOW on base & caster
+    """Set high friction on wheels and low friction on base and caster."""
     wheel_names = ["left_wheel_joint", "right_wheel_joint"]
-    caster_name = "caster"  # as a link, not a joint!
     wheel_friction = 1.5
     chassis_friction = 0.01
     caster_friction = 0.05
@@ -163,22 +143,20 @@ def set_friction(robot_id):
     for j in range(p.getNumJoints(robot_id)):
         info = p.getJointInfo(robot_id, j)
         name = info[1].decode('utf-8')
-        # Set HIGH friction for wheels
         if name in wheel_names:
             p.changeDynamics(robot_id, j, lateralFriction=wheel_friction)
-        # Set LOW friction for caster
         elif "caster" in name:
             p.changeDynamics(robot_id, j, lateralFriction=caster_friction)
 
-    # Set LOW friction for chassis (base link, typically -1)
+    # Base link (chassis)
     p.changeDynamics(robot_id, -1, lateralFriction=chassis_friction)
 
-
 def run_simulation(controller_file, steps, use_gui=True):
+    """Run a single simulation episode using the given controller JSON file."""
     with open(controller_file, "r", encoding="utf-8") as f:
         data = json.load(f)
     if data.get("encoding", "") not in ("bitmask", "braitenberg"):
-        messagebox.showerror("Error", "Encoding inválido. Debe ser 'bitmask' o 'braitenberg'.")
+        messagebox.showerror("Error", "Invalid encoding. Must be 'bitmask' or 'braitenberg'.")
         return
 
     p.connect(p.GUI if use_gui else p.DIRECT)
@@ -188,7 +166,12 @@ def run_simulation(controller_file, steps, use_gui=True):
     add_world()
     start_pos, start_ori = random_start()
     robot_id = p.loadURDF("robots/epuck_sim.urdf", start_pos, start_ori, useFixedBase=False)
-    p.resetDebugVisualizerCamera(cameraDistance=1.0, cameraYaw=45, cameraPitch=-35, cameraTargetPosition=[0, 0, 0.03])
+    p.resetDebugVisualizerCamera(
+        cameraDistance=1.0,
+        cameraYaw=45,
+        cameraPitch=-35,
+        cameraTargetPosition=[0, 0, 0.03]
+    )
     
     # Find joint indices (optionally print joint names for diagnostics)
     left_joint_index = right_joint_index = None
@@ -199,11 +182,11 @@ def run_simulation(controller_file, steps, use_gui=True):
         elif name == "right_wheel_joint":
             right_joint_index = j
     if left_joint_index is None or right_joint_index is None:
-        messagebox.showerror("Error", "No se encontraron las ruedas.")
+        messagebox.showerror("Error", "Wheel joints not found.")
         p.disconnect()
         return
 
-    # --- SET FRICTION as needed ---
+    # Set friction for robot
     set_friction(robot_id)
 
     wheel_radius = 0.02
@@ -216,14 +199,8 @@ def run_simulation(controller_file, steps, use_gui=True):
     fitness_steps = 0
     v_list, d_list, i_list = [], [], []
 
-    # DEBUG
-    v_list = []
-    d_list = []
-    i_list = []
-
     try:
         for t in range(steps):
-        
             keys = p.getKeyboardEvents()
             space_pressed = 32 in keys and keys[32] & p.KEY_IS_DOWN
             if space_pressed and not last_space_toggle:
@@ -235,19 +212,13 @@ def run_simulation(controller_file, steps, use_gui=True):
             yaw = p.getEulerFromQuaternion(robot_ori)[2]
             global_angles = yaw + SENSOR_ANGLES
             svals = read_range_sensors(robot_id, global_angles, SENSOR_RANGE)
-            
-            '''
-            # DEBUG
-            if t < 40:
-                print(f"Sensors at start: {np.round(svals, 3)}")
-            '''
                  
             l_speed, r_speed = robot_controller(svals, data)
             l_speed = np.clip(l_speed, -1.0, 1.0)
             r_speed = np.clip(r_speed, -1.0, 1.0)
 
-            # --- Nolfi et al. fitness calculation ---
-            max_speed = 1.0  # Adjust if your actual max controller output is different!
+            # Nolfi-style fitness calculation
+            max_speed = 1.0  # Adjust if your controller outputs a different max
             v_left = l_speed
             v_right = r_speed
             V = (abs(v_left) + abs(v_right)) / (2.0 * max_speed)
@@ -264,15 +235,19 @@ def run_simulation(controller_file, steps, use_gui=True):
 
             wl = l_speed / wheel_radius
             wr = r_speed / wheel_radius
-            p.setJointMotorControl2(robot_id, left_joint_index, p.VELOCITY_CONTROL, targetVelocity=wl, force=max_motor_torque)
-            p.setJointMotorControl2(robot_id, right_joint_index, p.VELOCITY_CONTROL, targetVelocity=wr, force=max_motor_torque)
+            p.setJointMotorControl2(
+                robot_id, left_joint_index,
+                p.VELOCITY_CONTROL, targetVelocity=wl,
+                force=max_motor_torque
+            )
+            p.setJointMotorControl2(
+                robot_id, right_joint_index,
+                p.VELOCITY_CONTROL, targetVelocity=wr,
+                force=max_motor_torque
+            )
             p.stepSimulation()
             if not fast_mode:
-                #time.sleep(1.0/240.0)
                 time.sleep(0.0003)
-
-
-    
 
     finally:
         p.disconnect()
@@ -280,7 +255,7 @@ def run_simulation(controller_file, steps, use_gui=True):
         if fitness_steps > 0:
             avg_fitness = fitness_sum / fitness_steps
             result_text = (
-                f"Fitness promedio: {avg_fitness:.4f}\n"
+                f"Average fitness: {avg_fitness:.4f}\n"
                 f"Mean V: {np.mean(v_list):.3f}\n"
                 f"Mean D: {np.mean(d_list):.3f}\n"
                 f"Mean I: {np.mean(i_list):.3f}"
@@ -296,20 +271,19 @@ def run_simulation(controller_file, steps, use_gui=True):
         else:
             result_text = "No steps evaluated for fitness."
 
-        # Mostrar popup solo si estamos en GUI principal
+        # Show popup only if we are in the main GUI
         if len(sys.argv) == 1:
-            messagebox.showinfo("Resultados", result_text)
+            messagebox.showinfo("Results", result_text)
 
-        # Salida segura según modo
+        # Safe exit depending on mode
         if use_gui:
-            os._exit(0)  # Evita crash en macOS con PyBullet GUI
+            os._exit(0)  # Avoid crash on macOS with PyBullet GUI
         else:
-            sys.exit(0)  # Permite mostrar popup en modo DIRECT
+            sys.exit(0)  # Allow popup to be shown in DIRECT mode
 
-
-
-# --- Tkinter GUI ---
+# --- Tkinter GUI entrypoint ---
 if len(sys.argv) > 1:
+    # Launched as: python run_epuck_sim.py controller.json steps use_gui
     controller_file = sys.argv[1]
     steps = int(sys.argv[2])
     use_gui = sys.argv[3].lower() == "true"
@@ -317,122 +291,79 @@ if len(sys.argv) > 1:
     sys.exit(0)
 
 root = tk.Tk()
-root.title("Simulación ePuck")
+root.title("ePuck Simulation")
 
-file_label = tk.Label(root, text="Archivo JSON:")
+file_label = tk.Label(root, text="JSON file:")
 file_label.grid(row=0, column=0, padx=5, pady=5)
 file_entry = tk.Entry(root, width=40)
 file_entry.grid(row=0, column=1, padx=5, pady=5)
 
 def browse_file():
-    filename = filedialog.askopenfilename(title="Selecciona archivo JSON", filetypes=[("JSON files", "*.json")])
+    """Open a file dialog to select a JSON controller file."""
+    filename = filedialog.askopenfilename(
+        title="Select JSON file",
+        filetypes=[("JSON files", "*.json")]
+    )
     file_entry.delete(0, tk.END)
     file_entry.insert(0, filename)
 
-browse_btn = tk.Button(root, text="Buscar", command=browse_file)
+browse_btn = tk.Button(root, text="Browse", command=browse_file)
 browse_btn.grid(row=0, column=2, padx=5, pady=5)
 
-steps_label = tk.Label(root, text="Número de pasos:")
+steps_label = tk.Label(root, text="Number of steps:")
 steps_label.grid(row=1, column=0, padx=5, pady=5)
 steps_entry = tk.Entry(root, width=10)
 steps_entry.insert(0, "5000")
 steps_entry.grid(row=1, column=1, padx=5, pady=5)
 
 mode_var = tk.BooleanVar(value=True)
-mode_check = tk.Checkbutton(root, text="Usar GUI (desactiva para DIRECT)", variable=mode_var)
+mode_check = tk.Checkbutton(root, text="Use GUI (uncheck for DIRECT)", variable=mode_var)
 mode_check.grid(row=2, column=0, columnspan=2, pady=5)
 
-'''
 def run_clicked():
-    controller_file = file_entry.get()
-    steps = int(steps_entry.get())
-    use_gui = mode_var.get()
-    if not controller_file:
-        messagebox.showerror("Error", "Selecciona un archivo JSON")
-        return
-    run_simulation(controller_file, steps, use_gui)
-
-run_btn = tk.Button(root, text="Ejecutar Simulación", command=run_clicked)
-run_btn.grid(row=3, column=0, columnspan=3, pady=10)
-
-root.mainloop()
-
-def run_clicked():
+    """Callback for the 'Run Simulation' button."""
     controller_file = file_entry.get()
     steps = steps_entry.get()
     use_gui = mode_var.get()
     if not controller_file:
-        messagebox.showerror("Error", "Selecciona un archivo JSON")
+        messagebox.showerror("Error", "Please select a JSON file")
         return
 
-    # Launch simulation in a separate process
-    args = ["python", "test_sim_epuck.py", controller_file, steps, str(use_gui)]
-    subprocess.Popen(args)
-
-run_btn = tk.Button(root, text="Ejecutar Simulación", command=run_clicked)
-run_btn.grid(row=3, column=0, columnspan=3, pady=10)
-
-root.mainloop()
-'''
-
-
-def run_clicked():
-    controller_file = file_entry.get()
-    steps = steps_entry.get()
-    use_gui = mode_var.get()
-    if not controller_file:
-        messagebox.showerror("Error", "Selecciona un archivo JSON")
-        return
-
-    # Deshabilitar el botón mientras corre la simulación
+    # Disable the button while the simulation is running
     run_btn.config(state=tk.DISABLED)
 
-    # Lanzar la simulación en un proceso separado
+    # Launch the simulation in a separate process
     args = ["python", "run_epuck_sim.py", controller_file, steps, str(use_gui)]
     proc = subprocess.Popen(args)
 
-    '''
-    # Función para verificar si el proceso terminó
+    # Periodically check if the process has finished
     def check_process():
         if proc.poll() is None:
-            root.after(1000, check_process)  # Revisa cada segundo
+            root.after(1000, check_process)  # Check again in 1 second
         else:
-            run_btn.config(state=tk.NORMAL)  # Reactiva el botón cuando termina
-    '''
-    
+            # Re-enable the button when the simulation finishes
+            run_btn.config(state=tk.NORMAL)
 
-    # Función para verificar si el proceso terminó
-    def check_process():
-        if proc.poll() is None:
-            root.after(1000, check_process)  # Revisa cada segundo
-        else:
-            run_btn.config(state=tk.NORMAL)  # Reactiva el botón cuando termina
-            #status_label.config(text="Simulación finalizada")
-
-            # Leer resultados del JSON y mostrar popup
+            # Read results from JSON and show a popup
             try:
                 with open("fitness_results.json", "r", encoding="utf-8") as f:
                     data = json.load(f)
-                messagebox.showinfo("Resultados",
-                    f"Fitness promedio: {data['avg_fitness']:.4f}\n"
+                messagebox.showinfo(
+                    "Results",
+                    f"Average fitness: {data['avg_fitness']:.4f}\n"
                     f"Mean V: {data['mean_V']:.3f}\n"
                     f"Mean D: {data['mean_D']:.3f}\n"
                     f"Mean I: {data['mean_I']:.3f}"
                 )
             except Exception as e:
-                messagebox.showerror("Error", f"No se pudo leer resultados: {e}")
-
+                messagebox.showerror("Error", f"Could not read results: {e}")
 
     check_process()
 
-run_btn = tk.Button(root, text="Ejecutar Simulación", command=run_clicked)
+run_btn = tk.Button(root, text="Run Simulation", command=run_clicked)
 run_btn.grid(row=3, column=0, columnspan=3, pady=10)
-
-
 
 status_label = tk.Label(root, text="", fg="blue")
 status_label.grid(row=4, column=0, columnspan=3, pady=5)
 
-
 root.mainloop()
-
