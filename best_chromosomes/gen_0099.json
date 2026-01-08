@@ -1,0 +1,15 @@
+{
+  "generation": 99,
+  "chromosome": [
+    "wander",
+    "forward",
+    "wander",
+    "wander",
+    "wander",
+    "left",
+    "wander",
+    "right"
+  ],
+  "fitness": 246.80868122674224,
+  "encoding": "bitmask"
+}
