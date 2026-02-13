@@ -1,4 +1,9 @@
-# E-puck Evolutionary Robotics Simulator
+<!-- E-puck image at the very top -->
+<p align="center">
+  <img src="images/epuck.png" alt="E-puck robot" width="300">
+</p>
+
+# Evolutionary e-puck Simulator (PyBullet + Genetic Algorithm)
 
 ## Overview
 
