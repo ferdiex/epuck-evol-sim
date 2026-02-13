@@ -1,0 +1,5 @@
+pybullet
+numpy
+matplotlib
+# Tkinter is required for the GUI (run_epuck_sim.py),
+# but is typically installed with Python, not via pip.

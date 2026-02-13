@@ -1,0 +1,12 @@
+cat > .gitignore << 'EOF'
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Generated files (you can remove entries if you want to track them)
+fitness_results.json
+fitness_plot.png
+EOF

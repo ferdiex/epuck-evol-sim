@@ -1,0 +1,15 @@
+{
+  "generation": 80,
+  "chromosome": [
+    "reverse",
+    "left",
+    "left",
+    "forward",
+    "forward",
+    "right",
+    "reverse",
+    "forward"
+  ],
+  "fitness": 251.2991010921626,
+  "encoding": "bitmask"
+}

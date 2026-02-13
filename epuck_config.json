@@ -1,0 +1,113 @@
+{
+  "_comment": "ePuck Simulation Configuration v1.0",
+  "_note": "All files should load this config for consistency",
+  
+  "world": {
+    "type": "basic_walls",
+    "size": 1.5,
+    "plane_urdf": "plane.urdf",
+    "gravity": -9.81,
+    "timestep": 0.00416667,
+    "realtime_simulation": false
+  },
+  
+  "robot": {
+    "urdf_path": "robots/epuck_sim.urdf",
+    "wheel_radius": 0.02,
+    "max_motor_torque": 0.9,
+    "max_speed": 0.35,
+    "spawn_margin": 0.15,
+    "friction": {
+      "wheel": 1.5,
+      "chassis": 0.01,
+      "caster": 0.05
+    }
+  },
+  
+  "sensors": {
+    "num_sensors": 8,
+    "range": 0.055,
+    "obstacle_threshold": 0.25,
+    "visualize_rays": false
+  },
+  
+  "stuck_detection": {
+    "enabled": true,
+    "threshold_frames": 400,
+    "movement_threshold": 0.03,
+    "sensor_threshold": 0.3,
+    "effort_threshold": 0.25,
+    "grace_period": 100,
+    "history_length": 50
+  },
+  
+  "unstuck": {
+    "enabled": true,
+    "reverse_frames": 30,
+    "turn_frames": 80,
+    "reverse_speed": 0.3,
+    "turn_speed": 0.3
+  },
+  
+  "evolution": {
+    "population_size": 24,
+    "generations": 100,
+    "mutation_rate": 0.2,
+    "crossover_rate": 0.7,
+    "elitism": 2,
+    "eval_repeats": 3,
+    "eval_steps": 2000,
+    "random_seed": null
+  },
+  
+  "fitness": {
+    "_comment": "Evolution uses coverage, testing uses nolfi",
+    "evolution_type": "coverage",
+    "testing_type": "nolfi",
+    
+    "nolfi": {
+      "max_speed": 1.0
+    },
+    
+    "coverage": {
+      "distance_weight": 40.0,
+      "wheel_weight": 0.15,
+      "coverage_weight": 0.05,
+      "stuck_penalty": 0.2,
+      "oscillation_penalty": 2.0,
+      "early_movement_bonus": 1.0,
+      "wander_bonus_weight": 0.5,
+      "min_movement_threshold": 0.12
+    }
+  },
+  
+  "output": {
+    "verbosity": 1,
+    "sensor_print_freq": 50,
+    "save_best_every": 1,
+    "output_dir": "best_chromosomes",
+    "log_file": null
+  },
+  
+  "visualization": {
+    "camera_distance": 1.0,
+    "camera_yaw": 45,
+    "camera_pitch": -35,
+    "camera_target": [0, 0, 0.03],
+    "show_controls_menu": true,
+    "fast_mode_default": false
+  },
+  
+  "bitmask": {
+    "num_rules": 8,
+    "actions": ["forward", "left", "right", "reverse", "wander"],
+    "free_space_actions": ["forward", "left", "right", "wander", "reverse"],
+    "action_table": {
+      "forward": [1.0, 1.0],
+      "left": [0.2, 1.0],
+      "right": [1.0, 0.2],
+      "reverse": [-0.5, -0.5],
+      "wander": [0.6, 0.35]
+    }
+  }
+}
