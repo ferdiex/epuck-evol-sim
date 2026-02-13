@@ -20,24 +20,24 @@ This is a PyBullet-based evolutionary robotics simulator for the e-puck mobile r
 
 ## Project Structure
 
-epuck-simulator/
-├── view_epuck_sim.py          # CLI viewer (advanced users, quick testing)
-├── viewer_epuck_sim.py        # GUI viewer (beginners, demos)
-├── run_epuck_evol.py          # Evolution runner (genetic algorithm)
-├── plot_fitness.py            # Fitness plotter (parse logs, visualize)
-├── config_loader.py           # Configuration parser
-├── world_builder.py           # World generator from config
-├── epuck_config.json          # Main configuration file
-├── braitenberg_avoidance.json # Example Braitenberg controller
-├── robots/
-│   ├── epuck_sim.urdf         # Robot model (navigation only)
-│   └── epuck_gripper.urdf     # Robot model (with gripper)
-└── best_chromosomes/          # Evolution output (auto-created)
-    ├── evolution_config.json              # Saved config snapshot
-    ├── evolution_20260213_143052.log      # Fitness log (timestamped)
-    ├── gen_0000.json                      # Best controller generation 0
-    ├── gen_0050.json                      # Best controller generation 50
-    └── gen_0099.json                      # Best controller generation 99
+- **epuck-simulator/**
+  - `view_epuck_sim.py` — CLI viewer (advanced users, quick testing)
+  - `viewer_epuck_sim.py` — GUI viewer (beginners, demos)
+  - `run_epuck_evol.py` — Evolution runner (genetic algorithm)
+  - `plot_fitness.py` — Fitness plotter (parse logs, visualize)
+  - `config_loader.py` — Configuration parser
+  - `world_builder.py` — World generator from config
+  - `epuck_config.json` — Main configuration file
+  - `braitenberg_avoidance.json` — Example Braitenberg controller
+  - **robots/**
+    - `epuck_sim.urdf` — Robot model (navigation only)
+    - `epuck_gripper.urdf` — Robot model (with gripper)
+  - **best_chromosomes/**
+    - `evolution_config.json` — Saved config snapshot
+    - `evolution_20260213_143052.log` — Fitness log (timestamped)
+    - `gen_0000.json` — Best controller generation 0
+    - `gen_0050.json` — Best controller generation 50
+    - `gen_0099.json` — Best controller generation 99
 
 ---
 
