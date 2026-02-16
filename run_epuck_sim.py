@@ -339,6 +339,7 @@ def main():
         print("\n=== CONTROLS ===")
         print("SPACE: Toggle Fast/Real-time mode")
         print("G: Toggle Full Window View (PyBullet built-in)")
+        print("(cmd/alt) + W: Toggle Wireframe mode")
         print("P: Pause/Resume simulation")
         if has_gripper:
             print("H: Manual Open gripper")

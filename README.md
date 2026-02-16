@@ -45,26 +45,29 @@ This is a PyBullet-based evolutionary robotics simulator for the e-puck mobile r
 
 ### Main Commands
 
-Task                              Command
-Run evolution                     python run_epuck_evol.py
-Run evolution (custom config)     python run_epuck_evol.py --config my_config.json
-Plot evolution results            python plot_fitness.py best_chromosomes/evolution_*.log
-Plot with custom title            python plot_fitness.py evolution.log --title "My Experiment"
-Save plot to file                 python plot_fitness.py evolution.log --save fitness.png
-Test controller (CLI)             python view_epuck_sim.py controller.json 5000
-Test controller (GUI)             python viewer_epuck_sim.py
-Monitor evolution live            tail -f best_chromosomes/evolution_*.log
+| Task | Command |
+|------|---------|
+| **Run evolution** | `python run_epuck_evol.py` |
+| **Run evolution (custom config)** | `python run_epuck_evol.py --config my_config.json` |
+| **Plot evolution results** | `python plot_fitness.py best_chromosomes/evolution_*.log` |
+| **Plot with custom title** | `python plot_fitness.py evolution.log --title "My Experiment"` |
+| **Save plot to file** | `python plot_fitness.py evolution.log --save fitness.png` |
+| **Test controller (CLI)** | `python view_epuck_sim.py controller.json 5000` |
+| **Test controller (GUI)** | `python viewer_epuck_sim.py` |
+| **Monitor evolution live** | `tail -f best_chromosomes/evolution_*.log` |
 
 ### Keyboard Controls (During Simulation)
 
-Key       Action
-SPACE     Toggle fast/real-time mode
-P         Pause/resume simulation
-R         Reset robot to initial position
-H         Open gripper (if gripper detected)
-J         Close gripper (if gripper detected)
-G         Toggle fullscreen (PyBullet built-in)
-Ctrl+C    Stop evolution gracefully (saves progress)
+| Key | Action |
+|-----|--------|
+| `SPACE` | Toggle fast/real-time mode |
+| `W` | Toggle wireframe mode (Cmd+W on macOS, Alt+W on Windows) |
+| `P` | Pause/resume simulation |
+| `R` | Reset robot to initial position |
+| `H` | Open gripper (if gripper detected) |
+| `J` | Close gripper (if gripper detected) |
+| `G` | Toggle fullscreen (PyBullet built-in) |
+| `Ctrl+C` | Stop evolution gracefully (saves progress) |
 
 ---
 
@@ -755,9 +758,9 @@ MIT License - Free for research and educational use.
 
 ---
 
-Last Updated: 2026-02-13
-Version: 1.5.0
-Simulator Status: Navigation ✓ | Evolution ✓ | Gripper ⚠ (manual only)
+Last Updated: 2026-02-16
+Version: 1.5.1
+Simulator Status: Navigation ✓ | Evolution ✓ | Gripper ⚠ (manual only, Phase 2 pending)
 
 Major Changes in v1.5.0:
 - Added complete evolution system (run_epuck_evol.py)

@@ -207,6 +207,7 @@ def run_simulation(controller_file, steps, use_gui=True):
             print("H: Open gripper")
             print("J: Close gripper")
         print("G: Toggle Full Window (PyBullet built-in)")
+        print("(cmd/alt) + W: Toggle Wireframe mode")
         print("================\n")
 
     # Set friction for robot
@@ -429,7 +430,7 @@ info_label.grid(row=3, column=0, columnspan=3, pady=5)
 
 controls_label = tk.Label(
     root,
-    text="Controls: SPACE (fast) | P (pause) | R (reset) | H/J (gripper) | G (fullscreen)",
+    text="Controls: SPACE (fast) | P (pause) | R (reset) | H/J (gripper) | G (fullscreen) | cmd/alt) + W () Toggle Wireframe mode"),
     fg="gray",
     font=FONT_CONTROLS
 )
