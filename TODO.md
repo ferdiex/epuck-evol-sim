@@ -82,3 +82,84 @@ Cylinder dimensions:
 Sensor ranges:
 - Navigation: 5.5cm
 - Gripper (proposed): 1-2cm
+
+# TODO - Behavior-Based Controller Integration Guide
+
+## 1. Controller JSON Modifications
+
+Create a new JSON file (for example: behavior_based.json) with the following
+structure:
+
+{
+  "encoding": "behavior_based",
+  "behaviors": [
+    {
+      "name": "avoid_obstacles",
+      "priority": 1,
+      "threshold": 0.25,
+      "action": "reverse"
+    },
+    {
+      "name": "seek_goal",
+      "priority": 2,
+      "sensor": "light",
+      "action": "forward"
+    },
+    {
+      "name": "explore",
+      "priority": 3,
+      "action": "wander"
+    }
+  ],
+  "max_speed": 0.35
+}
+
+Key fields:
+- encoding: must be "behavior_based".
+- behaviors: list of behaviors with:
+  * name: identifier for the behavior.
+  * priority: lower number = higher priority.
+  * threshold: sensor condition to trigger the behavior.
+  * action: maps to existing ACTION_TABLE (forward, left, right, reverse, wander).
+- max_speed: maximum wheel speed.
+
+## 2. Simulator Code Modifications (view_epuck_sim.py)
+
+Add a new encoding case in the function robot_controller:
+
+elif controller_params.get("encoding") == "behavior_based":
+    # Iterate behaviors in order of priority
+    for behavior in sorted(controller_params["behaviors"], key=lambda b: b["priority"]):
+        if behavior["name"] == "avoid_obstacles":
+            if max(sensor_values) > behavior["threshold"]:
+                return ACTION_TABLE[behavior["action"]]
+        elif behavior["name"] == "seek_goal":
+            # Example: check for goal sensor (to be implemented)
+            goal_detected = False  # placeholder
+            if goal_detected:
+                return ACTION_TABLE[behavior["action"]]
+        elif behavior["name"] == "explore":
+            # Default fallback if no other behavior triggers
+            return ACTION_TABLE[behavior["action"]]
+
+Notes:
+- Behaviors are evaluated in priority order.
+- The first matching condition decides the action.
+- Actions are mapped to the existing ACTION_TABLE defined in the config.
+- You may extend sensor logic (for example, light detection) as needed.
+
+## 3. Workflow Summary
+
+1. Define behaviors in a new JSON file with priorities and actions.
+2. Extend robot_controller to handle "behavior_based" encoding.
+3. Map actions to wheel speeds using the existing ACTION_TABLE.
+4. Test simulation by running:
+
+   python view_epuck_sim.py behavior_based.json 5000 true
+
+## 4. Advantages of Behavior-Based Control
+
+- Modularity: easy to add or remove behaviors.
+- Safety: obstacle avoidance always has highest priority.
+- Flexibility: supports exploration, goal-seeking, or other tasks.
+- Compatibility: integrates smoothly with existing Braitenberg and evolutionary controllers.
