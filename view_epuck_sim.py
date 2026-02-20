@@ -44,6 +44,23 @@ OBSTACLE_THRESHOLD = cfg['sensors']['obstacle_threshold']
 VERBOSITY = cfg['output']['verbosity']
 
 # ============================================================================
+# FEATURE FLAGS (loaded from config)
+# ============================================================================
+
+ENABLE_STUCK_DETECTION = cfg['stuck_detection']['enabled']
+ENABLE_UNSTUCK = cfg['unstuck']['enabled']
+
+# Unstuck behavior configuration
+STUCK_THRESHOLD = cfg['stuck_detection']['threshold_frames']
+UNSTUCK_REVERSE_FRAMES = cfg['unstuck']['reverse_frames']
+UNSTUCK_TURN_FRAMES = cfg['unstuck']['turn_frames']
+MOVEMENT_THRESHOLD = cfg['stuck_detection']['movement_threshold']
+SENSOR_THRESHOLD = cfg['stuck_detection']['sensor_threshold']
+EFFORT_THRESHOLD = cfg['stuck_detection']['effort_threshold']
+GRACE_PERIOD = cfg['stuck_detection']['grace_period']
+HISTORY_LENGTH = cfg['stuck_detection']['history_length']
+
+# ============================================================================
 # BITMASK CONTROLLER ACTION TABLE (loaded from config)
 # ============================================================================
 
@@ -133,6 +150,49 @@ def set_friction(robot_id):
     # Base link (chassis)
     p.changeDynamics(robot_id, -1, lateralFriction=chassis_friction)
 
+# ============================================================================
+# UNSTUCK BEHAVIOR
+# ============================================================================
+
+def compute_unstuck_maneuver(unstuck_phase, unstuck_frame_counter, turn_direction):
+    """
+    Compute wheel speeds for unstuck behavior.
+    Phase 1: Reverse (back away from obstacle)
+    Phase 2: Turn 180° (random direction to break symmetry)
+    
+    Args:
+        unstuck_phase: 0=normal, 1=reversing, 2=turning
+        unstuck_frame_counter: Frames spent in current unstuck phase
+        turn_direction: -1 (left) or +1 (right)
+        
+    Returns:
+        (left_speed, right_speed, new_phase, new_counter, turn_dir)
+    """
+    reverse_speed = cfg['unstuck']['reverse_speed']
+    turn_speed = cfg['unstuck']['turn_speed']
+    
+    if unstuck_phase == 1:
+        # Phase 1: Reverse
+        if unstuck_frame_counter < UNSTUCK_REVERSE_FRAMES:
+            return -reverse_speed, -reverse_speed, 1, unstuck_frame_counter + 1, turn_direction
+        else:
+            # Move to turning phase
+            return 0.0, 0.0, 2, 0, turn_direction
+    
+    elif unstuck_phase == 2:
+        # Phase 2: Turn 180°
+        if unstuck_frame_counter < UNSTUCK_TURN_FRAMES:
+            left_speed = -turn_speed * turn_direction
+            right_speed = turn_speed * turn_direction
+            return left_speed, right_speed, 2, unstuck_frame_counter + 1, turn_direction
+        else:
+            # Unstuck complete - return to normal operation
+            return 0.0, 0.0, 0, 0, turn_direction
+    
+    else:
+        # Should not reach here
+        return 0.0, 0.0, 0, 0, turn_direction
+        
 # ============================================================================
 # MAIN SIMULATION
 # ============================================================================
@@ -228,6 +288,15 @@ def run_simulation(controller_file, steps, use_gui=True):
     fitness_steps = 0
     v_list, d_list, i_list = [], [], []
 
+    # Stuck detection state
+    position_history = []
+    stuck_counter = 0
+    
+    # Unstuck behavior state
+    unstuck_phase = 0  # 0=normal, 1=reversing, 2=turning
+    unstuck_frame_counter = 0
+    turn_direction = 0  # Will be set to -1 or +1 when unstuck triggers
+
     try:
         for t in range(steps):
             keys = p.getKeyboardEvents()
@@ -276,6 +345,56 @@ def run_simulation(controller_file, steps, use_gui=True):
                 l_speed, r_speed = robot_controller(svals, data)
                 l_speed = np.clip(l_speed, -1.0, 1.0)
                 r_speed = np.clip(r_speed, -1.0, 1.0)
+
+                # Position tracking for stuck detection
+                if ENABLE_STUCK_DETECTION:
+                    position_history.append(robot_pos[:2])
+                    if len(position_history) > HISTORY_LENGTH:
+                        position_history.pop(0)
+                    
+                    # Check if stuck
+                    if len(position_history) == HISTORY_LENGTH:
+                        dist_moved = np.linalg.norm(
+                            np.array(position_history[-1]) - np.array(position_history[0])
+                        )
+                        
+                        max_sensor = max(svals)
+                        wheel_effort = max(abs(l_speed), abs(r_speed))
+                        
+                        # Only count as stuck if:
+                        # 1. Barely moving
+                        # 2. AND (obstacle detected OR wheels pushing hard)
+                        # 3. AND not currently in unstuck maneuver
+                        if (dist_moved < MOVEMENT_THRESHOLD and 
+                            (max_sensor > SENSOR_THRESHOLD or wheel_effort > EFFORT_THRESHOLD) and 
+                            unstuck_phase == 0):
+                            if stuck_counter >= 0:  # Not in grace period
+                                stuck_counter += 1
+                            else:
+                                stuck_counter += 1  # Counting up from grace period
+                        else:
+                            if stuck_counter > 0:
+                                stuck_counter = 0  # Reset only if was positive
+                            elif stuck_counter < 0:
+                                stuck_counter += 1  # Continue grace period countdown
+                
+                # Unstuck behavior override (if enabled and stuck long enough)
+                if ENABLE_UNSTUCK:
+                    if unstuck_phase > 0:
+                        # Currently executing unstuck maneuver
+                        l_speed, r_speed, unstuck_phase, unstuck_frame_counter, turn_direction = \
+                            compute_unstuck_maneuver(unstuck_phase, unstuck_frame_counter, turn_direction)
+                        
+                        if unstuck_phase == 0:
+                            # Unstuck complete - add grace period to prevent immediate re-trigger
+                            stuck_counter = -GRACE_PERIOD
+                            position_history.clear()
+                    
+                    elif stuck_counter > STUCK_THRESHOLD:
+                        # Trigger unstuck behavior
+                        unstuck_phase = 1
+                        unstuck_frame_counter = 0
+                        turn_direction = random.choice([-1, 1])  # Random turn direction
 
                 # Nolfi-style fitness calculation
                 fitness_cfg = cfg['fitness']['nolfi']
