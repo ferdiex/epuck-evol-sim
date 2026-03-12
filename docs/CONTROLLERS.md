@@ -109,3 +109,6 @@ Gripper-related (treat as experimental until manipulation is validated):
 ## RL policies
 The `rl_policy` encoding loads a trained Stable-Baselines3 model via a path, typically:
 - reinforcement/epuck_rl_policy.zip
+
+See:
+- docs/RL.md

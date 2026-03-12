@@ -74,7 +74,9 @@ All main parameters are centralized in epuck_config.json:
 ## Documentation
 - docs/RL.md: PPO training + how to run the trained policy in the viewer
 - docs/ROADMAP.md: gripper + proprioceptive occlusion + BG action selection roadmap
-
-(Additional docs may be added later: EVOLUTION.md, CONTROLLERS.md, CONFIG.md, TROUBLESHOOTING.md.)
+- docs/CONTROLLERS.md: supported controller encodings and notes
+- docs/EVOLUTION.md: genetic algorithm workflow, outputs, and logs
+- docs/CONFIG.md: epuck_config.json reference and customization
+- docs/TROUBLESHOOTING.md: common issues, performance tips, and fixes
 
 Last Updated: 2026-03-12
