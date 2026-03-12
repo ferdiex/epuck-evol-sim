@@ -1,0 +1,24 @@
+{
+  "encoding": "behavior_based",
+  "behaviors": [
+    {
+      "name": "explore",
+      "priority": 3,
+      "threshold": 0.4,
+      "action": "forward"
+    },
+    {
+      "name": "wander",
+      "priority": 2,
+      "threshold": 0.35,
+      "action": "wander"
+    },
+    {
+      "name": "seek_recharge",
+      "priority": 1,
+      "sensor": "charging_station",
+      "action": "forward"
+    }
+  ],
+  "max_speed": 0.35
+}

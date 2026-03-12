@@ -19,6 +19,8 @@ from tkinter import filedialog, messagebox
 import numpy as np
 import pybullet as p
 import pybullet_data
+from stable_baselines3 import PPO
+
 
 # ============================================================================
 # LOAD CONFIGURATION
@@ -61,6 +63,12 @@ GRACE_PERIOD = cfg['stuck_detection']['grace_period']
 HISTORY_LENGTH = cfg['stuck_detection']['history_length']
 
 # ============================================================================
+# GLOBAL VARIABLES
+# ============================================================================
+
+RL_MODEL = None
+
+# ============================================================================
 # BITMASK CONTROLLER ACTION TABLE (loaded from config)
 # ============================================================================
 
@@ -78,9 +86,10 @@ def get_bitmask_state(sensor_values):
     right = any(sensor_values[i] > OBSTACLE_THRESHOLD for i in [6, 7])
     return (left << 2) | (center << 1) | (right << 0)
 
-def robot_controller(sensor_values, controller_params):
+def robot_controller(sensor_values, controller_params, robot_pos=None, robot_ori=None):
+    global RL_MODEL
     """Dispatch to Braitenberg or bitmask controller based on encoding field."""
-    if controller_params.get("encoding") in ("braitenberg", "braitenberg_gripper"):
+    if controller_params.get("encoding") in ("braitenberg", "braitenberg_gripper", "braitenberg_seek"):
         left_w = np.array(controller_params["left_weights"])
         right_w = np.array(controller_params["right_weights"])
         l = float(np.dot(left_w, sensor_values)) + controller_params.get("left_bias", 0.0)
@@ -88,11 +97,137 @@ def robot_controller(sensor_values, controller_params):
         max_speed = controller_params.get("max_speed", cfg['robot']['max_speed'])
         l = np.clip(l, -max_speed, max_speed)
         r = np.clip(r, -max_speed, max_speed)
+        
+        if controller_params.get("encoding") == "braitenberg_seek" and robot_pos is not None:
+            if 'charging_station' in cfg['world']:
+                cs_cfg = cfg['world']['charging_station']
+                cs_pos = np.array(cs_cfg['position'][:2])
+                dist = np.linalg.norm(np.array(robot_pos[:2]) - cs_pos)
+                if dist <= cs_cfg['radius'] * 1.1:
+                    return tuple(controller_params.get("slow_speed", (0.1, 0.1)))
         return l, r
+        
+        
+    elif controller_params.get("encoding") == "behavior_based":
+        # Sort behaviors by priority (lower = stronger)
+        for behavior in sorted(controller_params["behaviors"], key=lambda b: b["priority"]):      
+            #print(behavior)
+            if behavior["name"] == "explore":
+                # Default fallback with bias toward JSON action
+                if max(sensor_values) == 0.1: 
+                    # No sensor triggered → use JSON action directly
+                    action_table_action = ACTION_TABLE[behavior["action"]]
+                elif max(sensor_values) < behavior.get("threshold", 0.3):
+                    # Sensors weak but not zero → tweak speeds
+                    left, right = ACTION_TABLE[behavior["action"]]  # from JSON
+                    # update each wheel independently
+                    left = left * -0.5
+                    right = right * -0.5   
+                    action_table_action = (left, right) 
+                else:
+                    # If sensors exceed threshold, skip forward_walls
+                    continue
+                return action_table_action 
+            elif behavior["name"] == "wander":
+                # Trigger only if sensors exceed threshold
+                if max(sensor_values) > behavior.get("threshold", 0.3):
+                    if random.random() < 0.5:  # 50% chance
+                        left, right = ACTION_TABLE[behavior["action"]]  # from JSON
+                        # update each wheel independently
+                        left =  left / 2    
+                        right = right / 2  
+                        action_table_action = (left, right) 
+                    else:
+                        action = random.choice(["reverse","forward","forward","right","left"])
+                        action_table_action = ACTION_TABLE[action]
+                    return action_table_action
+                else:
+                    # Skip avoid_explore if sensors are below threshold
+                    continue     
+                    
+            elif behavior["name"] == "seek_recharge":
+                if 'charging_station' in cfg['world'] and robot_pos is not None:
+                    cs_cfg = cfg['world']['charging_station']
+                    sr_cfg = cfg.get('seek_recharge', {})
+                    cs_pos = np.array(cs_cfg['position'][:2])
+                    dist = np.linalg.norm(np.array(robot_pos[:2]) - cs_pos)
+
+                    if dist <= cs_cfg['radius'] * 1.1:
+                        # Velocidad fija baja, configurable en JSON
+                        return tuple(sr_cfg.get("slow_speed", (0.1, 0.1)))
+
     elif controller_params.get("encoding") == "bitmask":
         idx = get_bitmask_state(sensor_values)
         action = controller_params["chromosome"][idx]
         return ACTION_TABLE[action]
+
+    elif controller_params.get("encoding") == "leaky":
+        # Convert weights to numpy arrays
+        left_w = np.array(controller_params["left_weights"])
+        right_w = np.array(controller_params["right_weights"])
+        
+        # Weighted sensor sums + bias (baseline forward drive)
+        left_bias = controller_params.get("left_bias", 0.1)
+        right_bias = controller_params.get("right_bias", 0.1)
+        left_input = float(np.dot(left_w, sensor_values)) + left_bias
+        right_input = float(np.dot(right_w, sensor_values)) + right_bias
+        
+        # Persistent states (initialize if not present)
+        if "left_state" not in controller_params:
+            controller_params["left_state"] = 0.0
+        if "right_state" not in controller_params:
+            controller_params["right_state"] = 0.0
+        
+        # Leak rate parameter
+        leak = controller_params.get("leak_rate", 0.2)
+        
+        # Update leaky integrators (rise when input strong, decay when input drops)
+        controller_params["left_state"] = (1 - leak) * controller_params["left_state"] + leak * left_input
+        controller_params["right_state"] = (1 - leak) * controller_params["right_state"] + leak * right_input
+        
+        # Clip to max speed
+        max_speed = controller_params.get("max_speed", cfg['robot']['max_speed'])
+        l = np.clip(controller_params["left_state"], -max_speed, max_speed)
+        r = np.clip(controller_params["right_state"], -max_speed, max_speed)
+        
+        return l, r
+
+    elif controller_params.get("encoding") == "rl_policy":
+        if RL_MODEL is None:
+            policy_path = controller_params.get("policy_file", "")
+            if not policy_path:
+                raise ValueError("Controller JSON missing 'policy_file' for encoding 'rl_policy'.")
+
+            resolved_path = policy_path
+            if not os.path.isabs(resolved_path):
+                resolved_path = os.path.join(os.getcwd(), policy_path)
+
+            if not os.path.exists(resolved_path):
+                raise FileNotFoundError(f"RL policy file not found: {resolved_path}")
+
+            RL_MODEL = PPO.load(resolved_path)
+            #print("[DEBUG] RL model loaded:", resolved_path, flush=True)
+
+        obs = np.array(sensor_values, dtype=np.float32).reshape(1, -1)
+        action, _ = RL_MODEL.predict(obs, deterministic=True)
+
+        # Robustly handle action shape (e.g., (2,) or (1, 2))
+        action = np.asarray(action)
+        action = action.reshape(-1)
+
+        if action.shape[0] < 2:
+            raise ValueError(f"Invalid RL action shape after flatten: {action.shape}")
+
+        # Clip normalized action and scale to wheel speeds
+        action = np.clip(action, -1.0, 1.0)
+
+        scale = cfg['robot']['max_speed']
+        l, r = float(action[0]) * scale, float(action[1]) * scale
+
+        #print("[DEBUG Viewer] obs:", obs, "action:", action, "scaled:", (l, r), flush=True)
+        return l, r
+
+        
     else:
         raise ValueError("Unknown controller encoding")
 
@@ -201,8 +336,13 @@ def run_simulation(controller_file, steps, use_gui=True):
     """Run a single simulation episode using the given controller JSON file."""
     with open(controller_file, "r", encoding="utf-8") as f:
         data = json.load(f)
-    if data.get("encoding", "") not in ("bitmask", "braitenberg", "braitenberg_gripper"):
-        messagebox.showerror("Error", "Invalid encoding. Must be 'bitmask', 'braitenberg', or 'braitenberg_gripper'.")
+
+    #print("[DEBUG] controller_file:", controller_file, flush=True)
+    #print("[DEBUG] controller encoding:", data.get("encoding", None), flush=True)
+    #print("[DEBUG] controller policy_file:", data.get("policy_file", None), flush=True)
+
+    if data.get("encoding", "") not in ("bitmask", "braitenberg", "braitenberg_gripper", "braitenberg_seek", "behavior_based", "leaky", "rl_policy"):
+        messagebox.showerror("Error", "Invalid encoding. Must be 'bitmask', 'braitenberg', 'braitenberg_gripper', 'braitenberg_seek', 'behavior_based', 'leaky', 'rl_policy'.")
         return
 
     p.connect(p.GUI if use_gui else p.DIRECT)
@@ -260,14 +400,21 @@ def run_simulation(controller_file, steps, use_gui=True):
             print("[INFO] No gripper detected - navigation only mode")
         
         print("\n=== CONTROLS ===")
-        print("SPACE: Toggle Fast/Real-time mode")
-        print("P: Pause/Resume simulation")
+        print("SPACE: Toggle fast / real-time mode")
+        print("P: Pause / resume simulation")
         print("R: Reset robot position")
         if has_gripper:
             print("H: Open gripper")
             print("J: Close gripper")
-        print("G: Toggle Full Window (PyBullet built-in)")
-        print("(cmd/alt) + W: Toggle Wireframe mode")
+
+        print("\n--- PyBullet built-in actions ---")
+        print("A: Show object bounding boxes (after W or V)")
+        print("G: Toggle full window view")
+        print("J: Show object axes (after W)")
+        print("K: Show sensor/contact debug line (after W)")
+        print("S: Toggle shadows / illumination")
+        print("V: Disable 3D rendering (use with bounding boxes)")
+        print("W: Toggle wireframe mode")
         print("================\n")
 
     # Set friction for robot
@@ -342,7 +489,7 @@ def run_simulation(controller_file, steps, use_gui=True):
                 global_angles = yaw + SENSOR_ANGLES
                 svals = read_range_sensors(robot_id, global_angles, SENSOR_RANGE)
                      
-                l_speed, r_speed = robot_controller(svals, data)
+                l_speed, r_speed = robot_controller(svals, data, robot_pos, robot_ori)
                 l_speed = np.clip(l_speed, -1.0, 1.0)
                 r_speed = np.clip(r_speed, -1.0, 1.0)
 
@@ -396,6 +543,16 @@ def run_simulation(controller_file, steps, use_gui=True):
                         unstuck_frame_counter = 0
                         turn_direction = random.choice([-1, 1])  # Random turn direction
 
+                # Charging station detection
+                if 'charging_station' in cfg['world']:
+                    cs_cfg = cfg['world']['charging_station']
+                    cs_pos = np.array(cs_cfg['position'][:2])  # x,y only
+                    cs_radius = cs_cfg['radius']
+                    dist = np.linalg.norm(np.array(robot_pos[:2]) - cs_pos)
+            
+                    if dist <= cs_radius:
+                        pass
+
                 # Nolfi-style fitness calculation
                 fitness_cfg = cfg['fitness']['nolfi']
                 max_speed = fitness_cfg['max_speed']
@@ -416,13 +573,11 @@ def run_simulation(controller_file, steps, use_gui=True):
                 # Gripper control (manual only)
                 if has_gripper:
                     if manual_gripper_state < 0.5:
-                        # CLOSE
                         p.setJointMotorControl2(robot_id, left_gripper_index, 
                                                p.POSITION_CONTROL, targetPosition=-0.020, force=10)
                         p.setJointMotorControl2(robot_id, right_gripper_index, 
                                                p.POSITION_CONTROL, targetPosition=0.020, force=10)
                     else:
-                        # OPEN
                         p.setJointMotorControl2(robot_id, left_gripper_index, 
                                                p.POSITION_CONTROL, targetPosition=0.020, force=10)
                         p.setJointMotorControl2(robot_id, right_gripper_index, 
@@ -483,9 +638,10 @@ def run_simulation(controller_file, steps, use_gui=True):
 
         # Safe exit depending on mode
         if use_gui:
-            os._exit(0)  # Avoid crash on macOS with PyBullet GUI
+            # Do not force-exit; allow macOS PyBullet GUI to close cleanly
+            return
         else:
-            sys.exit(0)  # Allow popup to be shown in DIRECT mode
+            sys.exit(0)
 
 # ============================================================================
 # TKINTER GUI ENTRYPOINT

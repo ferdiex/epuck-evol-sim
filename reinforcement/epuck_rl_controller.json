@@ -1,0 +1,4 @@
+{
+  "encoding": "rl_policy",
+  "policy_file": "reinforcement/epuck_rl_policy.zip"
+}

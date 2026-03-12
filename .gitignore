@@ -9,4 +9,7 @@ __pycache__/
 # Generated files (you can remove entries if you want to track them)
 fitness_results.json
 fitness_plot.png
+
+# Evolution Logs
+best_chromosomes/*.log
 EOF

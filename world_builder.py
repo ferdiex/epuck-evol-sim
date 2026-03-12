@@ -50,7 +50,13 @@ def build_world_from_config(cfg):
                     world_size=world_size,
                     random_seed=cyl_cfg.get('random_seed')
                 )
-
+    if 'charging_station' in cfg['world']:
+        cs_cfg = cfg['world']['charging_station']
+        build_charging_station(
+            position=cs_cfg['position'],
+            radius=cs_cfg['radius'],
+            color=cs_cfg['color']
+        )
 
 def build_basic_walls(world_size):
     """
@@ -194,3 +200,19 @@ def build_maze(world_size):
     """
     print("[WARNING] Maze world type not yet implemented, using basic_walls")
     build_basic_walls(world_size)
+    
+def build_charging_station(position, radius, color):
+    """Draw a thin green cylinder as charging station marker."""
+    visual_shape = p.createVisualShape(
+        p.GEOM_CYLINDER,
+        radius=radius,
+        length=0.001,  # very thin disc
+        rgbaColor=color
+    )
+    p.createMultiBody(
+        baseMass=0,
+        baseVisualShapeIndex=visual_shape,
+        basePosition=position
+    )
+    print(f"[INFO] Charging station placed at {position} (r={radius}m)")
+

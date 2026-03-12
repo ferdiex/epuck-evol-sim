@@ -1,0 +1,10 @@
+{
+  "encoding": "braitenberg_seek",
+  "left_weights":  [-1.2, -0.8, -0.3, 0.6, 1.0, 0.6, -0.3, -0.8],
+  "right_weights": [-0.8, -0.3, 0.6, 1.0, 0.6, -0.3, -0.8, -1.2],
+  "left_bias": 0.05,
+  "right_bias": 0.07,
+  "max_speed": 0.35,
+  "slow_speed": [0.1, 0.1]
+}
+

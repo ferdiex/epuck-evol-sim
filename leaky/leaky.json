@@ -1,8 +1,10 @@
 {
-  "encoding": "braitenberg",
+  "encoding": "leaky",
   "left_weights":  [-0.8, -0.6, -0.3, -0.15, 0.15, 0.3, 0.6, 0.8],
   "right_weights": [0.8, 0.6, 0.3, 0.15, -0.15, -0.3, -0.6, -0.8],
-  "left_bias": 0.3,
-  "right_bias": 0.3,
-  "max_speed": 0.35
+  "leak_rate": 0.18,
+  "left_bias": 0.25,
+  "right_bias": 0.25,
+  "max_speed": 0.30
 }
+
