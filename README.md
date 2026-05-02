@@ -3,7 +3,7 @@
   <img src="images/epuck.png" alt="E-puck robot" width="300">
 </p>
 
-# Evolutionary e-puck Simulator (PyBullet + GA + RL)
+# Evolutive Adaptive Simulator (easim)
 
 ## Overview
 PyBullet-based simulator for the e-puck mobile robot for evolutionary robotics and learning-based control.
