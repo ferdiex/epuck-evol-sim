@@ -1,8 +1,8 @@
 [Desktop Entry]
 Name=Epuck Simulator
-Comment=Ejecuta view_epuck_sim.py
-Exec=bash -c "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate epuck && cd /home/fmontes/easim && python view_epuck_sim.py"
-Icon=/home/fmontes/easim/images/epuck.png
+Comment=Execute view_epuck_sim.py
+Exec=bash -c "source /opt/miniconda3/etc/profile.d/conda.sh && conda activate epuck && cd /home/user_name/easim && python view_epuck_sim.py"
+Icon=/home/user_name/easim/images/epuck.png
 Terminal=false
 Type=Application
 Categories=Education;Science;

@@ -1,12 +1,12 @@
 #!/bin/zsh
-# Log para verificar entorno y fecha
+# Log to verify environment and date
 echo "$(date): Usando Python en: $(which python)" >> ~/epuck_log.txt
 
-# Activa el entorno Conda
-source /Users/fmontes/miniforge3/bin/activate epuck
+# Activate Conda environment
+source /Users/user_name/miniforge3/bin/activate epuck
 
-# Cambia al directorio del proyecto
-cd "/Users/fmontes/GitHub/Epuck/public"
+# Change to project directory
+cd "/Users/user_name/GitHub/Epuck/public"
 
-# Ejecuta el script principal
+# Run main script
 python3 view_epuck_sim.py

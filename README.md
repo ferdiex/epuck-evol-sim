@@ -79,4 +79,9 @@ All main parameters are centralized in epuck_config.json:
 - docs/CONFIG.md: epuck_config.json reference and customization
 - docs/TROUBLESHOOTING.md: common issues, performance tips, and fixes
 
+## Benchmarking
+To evaluate performance across different platforms, benchmarking scripts are included in the `/benchmark_scripts` folder. Tests were conducted on macOS, Linux, and Windows in headless mode using a Braitenberg controller with 10,000 steps. 
+Execution times and memory usage were measured with `gtime`, `hyperfine`, and adapted PowerShell scripts for Windows. Results were stored in JSON format to ensure consistency across operating systems.
+
+
 Last Updated: 2026-03-12

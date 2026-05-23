@@ -9,21 +9,21 @@ Write-Host "Controller: $controller"
 Write-Host "Steps: $steps"
 Write-Host "=============================================="
 
-# Medir tiempo de ejecución directamente
+# Measure execution time directly
 $time = Measure-Command {
     python view_epuck_sim.py $controller $steps false
 }
 
-# Capturar proceso Python para CPU/memoria
+# Capture Python process for CPU/memory
 $proc = Get-Process -Name python | Select-Object -First 1
 $cpu = $proc.CPU
 $mem = [math]::Round($proc.WorkingSet64 / 1MB, 2)
 
-# Calcular métricas
+# Calculate metrics
 $avg_time_per_step = $time.TotalSeconds / $steps
 $throughput = $steps / $time.TotalSeconds
 
-# Guardar resultados en JSON
+# Save results in JSON
 $result = @{
     Controller       = $controller
     Steps            = $steps

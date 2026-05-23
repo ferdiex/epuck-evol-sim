@@ -1,12 +1,12 @@
 @echo off
-REM Cambiar al directorio del simulador
-cd /d "C:\Users\fmont\easim"
+REM Change to simulator directory
+cd /d "C:\Users\user_name\easim"
 
-REM Activar entorno epuck
+REM Activate epuck environment
 call conda activate epuck
 
-REM Ejecutar simulador
+REM Run simulator
 python view_epuck_sim.py
 
-REM Mantener ventana abierta
+REM Keep window open
 pause
